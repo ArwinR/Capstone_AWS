@@ -1,71 +1,47 @@
 %%writefile core.py
 
+from typing import Any
+import boto3
+import json
 
-from typing import Any, List, Dict
+# AWS SageMaker Endpoint Information
+endpoint_name = 'jumpstart-dft-hf-llm-mistral-7b'
 
-# Runpod
-import runpod
-#Summary and checklist packages
+# Create a SageMaker runtime client
+sagemaker_runtime_client = boto3.client('sagemaker-runtime')
+
+# Import other necessary packages
 from langchain.chains.llm import LLMChain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.chains import MapReduceDocumentsChain, ReduceDocumentsChain
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.prompts import PromptTemplate
-# Chat packages
-import torch
-import os
-from langchain.llms import HuggingFaceTextGenInference
-from langchain.chains import RetrievalQA
-from langchain.embeddings import HuggingFaceBgeEmbeddings
-from langchain.callbacks import streaming_stdout
-from langchain.chains.question_answering import load_qa_chain
 from langchain import hub
 
+# Define a function to call the SageMaker endpoint
+def call_sagemaker_endpoint(input_text: str) -> Any:
+    response = sagemaker_runtime_client.invoke_endpoint(
+        EndpointName=endpoint_name,
+        ContentType='application/json',
+        Body=json.dumps({"inputs": input_text})
+    )
+    response_body = json.loads(response['Body'].read().decode())
+    return response_body['choices'][0]['message']['content'] if 'choices' in response_body else response_body
 
-# Global variables
-runpod.api_key = "O6FCUQVG8N3B58HLJZZ84P6DLNDRNQSU4KGANNG4"
-huggingfacehub_api_token = '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'
-zephyr_repo = 'HuggingFaceH4/zephyr-7b-beta'
-rag_prompt = hub.pull("rlm/rag-prompt-mistral")
+# Define a class to replace HuggingFaceTextGenInference for SageMaker
+class SageMakerTextGenInference:
+    def __init__(self, endpoint_name):
+        self.endpoint_name = endpoint_name
 
-# Connecting to Runpod LLM
-mistral_pod = runpod.get_pods()[0]
-  # Runpod URL
-inference_server_url_cloud = f"https://{mistral_pod['id']}-80.proxy.runpod.net"
+    def __call__(self, prompt: str) -> str:
+        return call_sagemaker_endpoint(prompt)
 
-# Tokenizer
-embedd_model = 'BAAI/bge-reranker-large'
-model_kwargs = {"device": 'cuda'}
-encode_kwargs = {"normalize_embeddings": True}
-embeddings = HuggingFaceBgeEmbeddings(
-    model_name=embedd_model, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-)
+# Instance of the SageMakerTextGenInference
+sage_maker_llm = SageMakerTextGenInference(endpoint_name=endpoint_name)
 
-
-# Chat LLM
-callbacks = [streaming_stdout.StreamingStdOutCallbackHandler()]
-chat_llm = HuggingFaceTextGenInference(
-    inference_server_url=inference_server_url_cloud,
-    max_new_tokens=512,
-    top_k=10,
-    top_p=0.95,
-    typical_p=0.95,
-    temperature=0.01,
-    repetition_penalty=1.03,
-    callbacks=callbacks,
-    streaming=True
-)
-
-# Summarization and checklist LLM
-sum_check_llm = HuggingFaceTextGenInference(
-    inference_server_url=inference_server_url_cloud,
-    max_new_tokens=1000,
-    top_k=10,
-    top_p=0.95,
-    typical_p=0.95,
-    temperature=0.01,
-    repetition_penalty=1.03,
-)
+# Replace zephyr_repo and rag_prompt if necessary with appropriate prompts for SageMaker
+zephyr_repo = 'HuggingFaceH4/zephyr-7b-beta' # if applicable
+rag_prompt = hub.pull("rlm/rag-prompt-mistral") # if applicable
 
 
 # Call LLM for summary
@@ -79,7 +55,7 @@ def run_llm_summarize(document_object: Any):
     [INST] Based on the provided excerpts, summarize the main theme.
     Helpful Answer:[/INST]"""
     map_prompt = PromptTemplate.from_template(map_template)
-    map_chain = LLMChain(llm=sum_check_llm, prompt=map_prompt)
+    map_chain = LLMChain(llm=sage_maker_llm, prompt=map_prompt)
 
     # Reduce
     reduce_template = """<s> [INST] The following is set of summaries:[/INST] </s>
@@ -87,7 +63,7 @@ def run_llm_summarize(document_object: Any):
     [INST] Take these and distill it into a final, consolidated summary. Ensure the final output is concise and easy to read.
     Helpful Answer:[/INST]"""
     reduce_prompt = PromptTemplate.from_template(reduce_template)
-    reduce_chain = LLMChain(llm=sum_check_llm, prompt=reduce_prompt)
+    reduce_chain = LLMChain(llm=sage_maker_llm, prompt=reduce_prompt)
 
     # Takes a list of documents, combines them into a single string, and passes this to an LLMChain
     combine_documents_chain = StuffDocumentsChain(
@@ -128,7 +104,7 @@ def run_llm_checklist(document_object: Any):
     [INST] Based on the provided guidance, please create a list of suggestions.
     Helpful Answer:[/INST]"""
     map_prompt = PromptTemplate.from_template(map_template)
-    map_chain = LLMChain(llm=sum_check_llm, prompt=map_prompt)
+    map_chain = LLMChain(llm=sage_maker_llm, prompt=map_prompt)
 
     # Reduce
     reduce_template = """<s> [INST] The following is a colection of suggestions from a compliance document:[/INST] </s>
@@ -136,7 +112,7 @@ def run_llm_checklist(document_object: Any):
     [INST] Take these and distill them into a final, consolidated list of suggestions to comply with the guidance provided in the document.
     Helpful Answer:[/INST]"""
     reduce_prompt = PromptTemplate.from_template(reduce_template)
-    reduce_chain = LLMChain(llm=sum_check_llm, prompt=reduce_prompt)
+    reduce_chain = LLMChain(llm=sage_maker_llm, prompt=reduce_prompt)
 
     # Takes a list of documents, combines them into a single string, and passes this to an LLMChain
     combine_documents_chain = StuffDocumentsChain(
