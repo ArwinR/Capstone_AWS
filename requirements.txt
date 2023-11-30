@@ -18,3 +18,7 @@ chromadb==0.4.15
 python-dotenv==1.0.0
 tiktoken==0.5.1
 langchainhub==0.1.13
+text-generation
+transformers
+huggingface_hub
+	

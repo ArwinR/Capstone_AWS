@@ -1,4 +1,7 @@
+%%writefile app.py
+
 import re
+import time
 import os
 import streamlit as st
 from typing import Set
@@ -15,6 +18,55 @@ from utilities import (list_files,
 from core import run_llm_summarize, run_llm_checklist, run_llm_chat
 
 
+####################
+# Utility functions
+####################
+
+# # Function to list files in upload directory
+# def list_files():
+#      # Checking if the uploads directory exists, and create it if it doesn't
+#     outdir = "./backend/uploads/"
+#     if not os.path.exists(outdir):
+#         os.makedirs(outdir)
+
+#     return [f for f in os.listdir(outdir) if os.path.isfile(os.path.join(outdir, f))]
+
+# # Saving a copy of PDF for vectorization
+# def save_upload(file):
+#     file_name = file.name
+
+#     # Checking if the uploads directory exists, and create it if it doesn't
+#     outdir = "./backend/uploads/"
+#     if not os.path.exists(outdir):
+#         os.makedirs(outdir)
+
+#     # Checking if the file already exists, and saving it if it doesn't
+#     file_path = os.path.join(outdir, file_name)
+#     if not os.path.exists(file_path):
+#         # Saving the file
+#         with open(os.path.join(outdir, file_name), "wb") as f:
+#             f.write(file.read())
+
+#     return file_path, file_name
+
+# # Return response sources in formatted string
+# def create_sources_string(source_urls: Set[str]) -> str:
+#     if not source_urls:
+#         return ""
+#     sources_list = list(source_urls)
+#     sources_list.sort()
+#     sources_string = "Pulled from pages:\n"
+#     for i, source in enumerate(sources_list):
+#         sources_string += f" {source},"
+#     return sources_string
+
+# # Return file name for subheadder
+# @st.cache_resource()
+# def clean_name(doc_name):
+
+#     cleaned_name = re.sub(r'.pdf', '', doc_name, flags=re.IGNORECASE)
+#     cleaned_name = re.sub(r'\.', ' ', cleaned_name)
+#     return cleaned_name
 
 ####################
 # Global Variables
@@ -29,6 +81,7 @@ saved_docs = list_files()
 ####################
 
 import streamlit as st
+import time
 
 title = st.empty()
 sub_header = st.empty()
@@ -67,7 +120,7 @@ def upload_document_sidebar(file):
         file_path, file_name = save_upload(file)
         loading_message_container = st.empty()
         loading_message_container.info("Hangtight, I'm giving the document a quick translation into a computer-friendly language. This shouldn't take more than a minute!",
-                               icon="📑")
+                                       icon="📑")
         vectore_store = ingest_doc(file_path, file_name)
         raw_docs = create_doc_obj(file_path, file_name)
         loading_message_container.empty()
@@ -156,7 +209,7 @@ if sidebar_completed:
     with col1:
         summarize = st.button("Summarize")
     with col2:
-        quick_list = st.button("Checklist")
+        quick_list = st.button("Quick Guidance")
 
 
 
@@ -165,7 +218,7 @@ if "vectore_store" in st.session_state is not None and sidebar_completed and sum
     summary = create_or_load_summ(_doc_object=st.session_state.document_object, doc_name=doc_name)
     st.write(summary)
 
-# Checklist
+# Checklist list
 if "vectore_store" in st.session_state is not None and sidebar_completed and quick_list:
     checklist = create_or_load_checklist(_doc_object=st.session_state.document_object, doc_name=doc_name)
     st.write(checklist)
@@ -201,4 +254,3 @@ if "vectore_store" in st.session_state is not None and sidebar_completed:
                 st.write(user_query)
             with st.chat_message("ai", avatar="🤖"):
                 st.write(generated_response)
-
