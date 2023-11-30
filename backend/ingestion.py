@@ -1,4 +1,4 @@
-%%writefile ingest.py
+# %%writefile ingest.py
 
 # Ingest packages
 import os

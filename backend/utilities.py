@@ -1,4 +1,4 @@
-%%writefile utilities.py
+#%%writefile utilities.py
 
 
 import os
