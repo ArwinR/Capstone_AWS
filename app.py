@@ -7,15 +7,15 @@ import streamlit as st
 from typing import Set
 from streamlit_chat import message
 
-from ingest import ingest_doc, create_doc_obj
-from utilities import (list_files,
+from backend.ingestion import ingest_doc, create_doc_obj
+from backend.utilities import (list_files,
                        save_upload,
                        create_sources_string,
                        clean_name,
                        create_or_load_summ,
                        create_or_load_checklist
                        )
-from core import run_llm_summarize, run_llm_checklist, run_llm_chat
+from backend.core import run_llm_summarize, run_llm_checklist, run_llm_chat
 
 
 ####################
