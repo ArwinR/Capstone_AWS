@@ -5,7 +5,7 @@ import os
 import re
 import streamlit as st
 from typing import Set
-from core import run_llm_summarize, run_llm_checklist
+from .core import run_llm_summarize, run_llm_checklist
 
 ####################
 # Utility functions
