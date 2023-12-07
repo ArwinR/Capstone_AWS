@@ -65,5 +65,15 @@ def ingest_doc(doc_path, file_name):
 
     return vectorstore
 
-# Example usage
-# ingest_doc('path_to_pdf_document', 'example_vector_db')
+def create_doc_obj(doc_path, file_name):
+    # Checking if vector database exists, creating it if not
+    outdir = "./backend/vector_databases/"
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    # Creating database path
+    db_path = os.path.join(outdir, file_name)
+    print('Db Path: ', db_path)
+    # Creating document object
+    loader = PyPDFLoader(doc_path)
+    raw_doc = loader.load()
+    return raw_doc
