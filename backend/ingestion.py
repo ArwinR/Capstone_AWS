@@ -1,5 +1,7 @@
 # %%writefile ingest.py
 
+# Document ingestion
+
 # Ingest packages
 import os
 import torch
@@ -8,14 +10,17 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceBgeEmbeddings
-from langchain import HuggingFaceHub
+
+
 # Tokenizer
-embedd_model = 'BAAI/bge-reranker-large'
+embedd_model = 'BAAI/bge-large-en'
 model_kwargs = {"device": 'cuda'}
 encode_kwargs = {"normalize_embeddings": True}
 embeddings = HuggingFaceBgeEmbeddings(
     model_name=embedd_model, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
 )
+
+# Vectorize document and export vectorstore
 def ingest_doc(doc_path, file_name):
     # Checking if vector database exists, creating it if not
     outdir = "./backend/vector_databases/"
@@ -39,6 +44,8 @@ def ingest_doc(doc_path, file_name):
     else:
         vectorstore = Chroma(persist_directory=db_path, embedding_function=embeddings)
     return vectorstore
+
+# Return raw document object
 def create_doc_obj(doc_path, file_name):
     # Checking if vector database exists, creating it if not
     outdir = "./backend/vector_databases/"

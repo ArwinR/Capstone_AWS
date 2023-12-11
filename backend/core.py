@@ -1,5 +1,7 @@
-# %%writefile core.py
+%%writefile core.py
 
+
+# App core features
 
 from typing import Any, List, Dict
 
@@ -12,30 +14,26 @@ from langchain.prompts import PromptTemplate
 # Chat packages
 import torch
 import os
+# import runpod
 from langchain.llms import HuggingFaceTextGenInference
 from langchain.chains import RetrievalQA
-from langchain.embeddings import HuggingFaceBgeEmbeddings
+# from langchain.embeddings import HuggingFaceBgeEmbeddings
 from langchain.callbacks import streaming_stdout
-from langchain.chains.question_answering import load_qa_chain
 from langchain import hub
 
 
 # Global variables
-huggingfacehub_api_token = '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'
-zephyr_repo = 'HuggingFaceH4/zephyr-7b-beta'
+# huggingfacehub_api_token = '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'
+# zephyr_repo = 'HuggingFaceH4/zephyr-7b-beta'
 rag_prompt = hub.pull("rlm/rag-prompt-mistral")
 
 
 # TGI URL
+# runpod.api_key = "O6FCUQVG8N3B58HLJZZ84P6DLNDRNQSU4KGANNG4"
+# mistral_pod = runpod.get_pods()[0]
+# mistral_pod
+# inference_url = f"https://{mistral_pod['id']}-80.proxy.runpod.net"
 inference_url = "https://wp021uax7a.execute-api.us-west-2.amazonaws.com/default/mistralrequest"
-
-# Tokenizer
-embedd_model = 'BAAI/bge-reranker-large'
-model_kwargs = {"device": 'cuda'}
-encode_kwargs = {"normalize_embeddings": True}
-embeddings = HuggingFaceBgeEmbeddings(
-    model_name=embedd_model, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
-)
 
 
 # Chat LLM
@@ -53,12 +51,12 @@ chat_llm = HuggingFaceTextGenInference(
 # Summarization and checklist LLM
 sum_check_llm = HuggingFaceTextGenInference(
     inference_server_url=inference_url,
-    max_new_tokens=1000,
+    max_new_tokens=1012,
     top_k=10,
     top_p=0.95,
     typical_p=0.95,
     temperature=0.01,
-    repetition_penalty=1.03,
+    repetition_penalty=1.03
 )
 
 
@@ -95,7 +93,7 @@ def run_llm_summarize(document_object: Any):
         # If documents exceed context for `StuffDocumentsChain`
         collapse_documents_chain=combine_documents_chain,
         # The maximum number of tokens to group documents into.
-        token_max=4000,
+        token_max=1000,
     )
 
     # Combining documents by mapping a chain over them, then combining results
@@ -128,15 +126,15 @@ def run_llm_checklist(document_object: Any):
     # Map
     map_template = """<s> [INST] The following is a collection of guidance from a compliance document:[/INST] </s>
     {docs}
-    [INST] Based on the provided guidance, please create a list of suggestions.
+    [INST] Based on the provided guidance, summarize a list of suggestions.
     Helpful Answer:[/INST]"""
     map_prompt = PromptTemplate.from_template(map_template)
     map_chain = LLMChain(llm=sum_check_llm, prompt=map_prompt)
 
     # Reduce
-    reduce_template = """<s> [INST] The following is a colection of suggestions from a compliance document:[/INST] </s>
+    reduce_template = """<s> [INST] The following is a collection of suggestions from a compliance document:[/INST] </s>
     {doc_summaries}
-    [INST] Take these and distill them into a final, consolidated list of suggestions to comply with the guidance provided in the document.
+    [INST] Take these and distill them into a final, consolidated list of suggestions. Ensure the final output is concise and easy to read.
     Helpful Answer:[/INST]"""
     reduce_prompt = PromptTemplate.from_template(reduce_template)
     reduce_chain = LLMChain(llm=sum_check_llm, prompt=reduce_prompt)
@@ -153,7 +151,7 @@ def run_llm_checklist(document_object: Any):
         # If documents exceed context for `StuffDocumentsChain`
         collapse_documents_chain=combine_documents_chain,
         # The maximum number of tokens to group documents into.
-        token_max=4000,
+        token_max=1000,
     )
 
     # Combining documents by mapping a chain over them, then combining results
@@ -182,17 +180,21 @@ def run_llm_checklist(document_object: Any):
 def run_llm_chat(vector_database: Any, question: str):
 
     # Vector DB retriever
-    retriever = vector_database.as_retriever(search_type="similarity_score_threshold", search_kwargs={"score_threshold": .8, 'k': 10,})
-    docs = retriever.get_relevant_documents(question)
+    retriever = vector_database.as_retriever(search_type="mmr", search_kwargs={'k': 10, 'fetch_k': 50})
 
-   # Chain
-    chain = load_qa_chain(chat_llm, chain_type="stuff", prompt=rag_prompt)
-    # Run
-    response = chain({"input_documents": docs, "question": question}, return_only_outputs=False)
+    # QA Retriever
+    qa = RetrievalQA.from_chain_type(
+        llm=chat_llm,
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=True
+    )
 
-    output = response['output_text']
+    # LLM Response
+    output = qa({'query':question})
 
-    sources = [doc.metadata['page'] for doc in response['input_documents']]
-    sources.sort()
+    # Response & source pages
+    response = output["result"]
+    source_page = [doc.metadata["page"] for doc in output["source_documents"]]
 
-    return output, sources
+    return response, source_page

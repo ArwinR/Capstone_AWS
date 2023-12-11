@@ -17,57 +17,6 @@ from backend.utilities import (list_files,
                        )
 from backend.core import run_llm_summarize, run_llm_checklist, run_llm_chat
 
-
-####################
-# Utility functions
-####################
-
-# # Function to list files in upload directory
-# def list_files():
-#      # Checking if the uploads directory exists, and create it if it doesn't
-#     outdir = "./backend/uploads/"
-#     if not os.path.exists(outdir):
-#         os.makedirs(outdir)
-
-#     return [f for f in os.listdir(outdir) if os.path.isfile(os.path.join(outdir, f))]
-
-# # Saving a copy of PDF for vectorization
-# def save_upload(file):
-#     file_name = file.name
-
-#     # Checking if the uploads directory exists, and create it if it doesn't
-#     outdir = "./backend/uploads/"
-#     if not os.path.exists(outdir):
-#         os.makedirs(outdir)
-
-#     # Checking if the file already exists, and saving it if it doesn't
-#     file_path = os.path.join(outdir, file_name)
-#     if not os.path.exists(file_path):
-#         # Saving the file
-#         with open(os.path.join(outdir, file_name), "wb") as f:
-#             f.write(file.read())
-
-#     return file_path, file_name
-
-# # Return response sources in formatted string
-# def create_sources_string(source_urls: Set[str]) -> str:
-#     if not source_urls:
-#         return ""
-#     sources_list = list(source_urls)
-#     sources_list.sort()
-#     sources_string = "Pulled from pages:\n"
-#     for i, source in enumerate(sources_list):
-#         sources_string += f" {source},"
-#     return sources_string
-
-# # Return file name for subheadder
-# @st.cache_resource()
-# def clean_name(doc_name):
-
-#     cleaned_name = re.sub(r'.pdf', '', doc_name, flags=re.IGNORECASE)
-#     cleaned_name = re.sub(r'\.', ' ', cleaned_name)
-#     return cleaned_name
-
 ####################
 # Global Variables
 ####################
@@ -143,7 +92,7 @@ with upload_placeholder.info(" 👈 Select document or upload your own to start 
         st.markdown("")
 
          # Radio button for user confirmation with agreement link
-        agreement_link = "[User Agreement](https://google.com)"
+        agreement_link = "[User Agreement](https://sibylcopilot.com/termsconditions/)"
         user_confirmation = st.checkbox(label=f"I confirm that I have read and understood the {agreement_link}.")
 
         # Adding empty line for spacing
@@ -237,7 +186,7 @@ if "vectore_store" in st.session_state is not None and sidebar_completed:
     if prompt:
         with st.spinner("Searching document for the answer..."):
             generated_response, sources = run_llm_chat(vector_database=vectore_store, question=prompt)
-            formatted_response = (f"{generated_response} \n\n {create_sources_string(set(sources))}")
+            formatted_response = (f"{generated_response} \n\n Pulled from Pages: \n{sorted(set(sources))}")
 
         st.session_state.chat_history.append((prompt, generated_response))
         st.session_state.user_prompt_history.append(prompt)
@@ -247,8 +196,8 @@ if "vectore_store" in st.session_state is not None and sidebar_completed:
     # Displaying generated response with unique keys
     if st.session_state["chat_answers_history"]:
         for generated_response, user_query in zip(
-            st.session_state["chat_answers_history"],
-            st.session_state["user_prompt_history"],
+            reversed(st.session_state["chat_answers_history"]),
+            reversed(st.session_state["user_prompt_history"]),
         ):
             with st.chat_message("user", avatar="🤔"):
                 st.write(user_query)
