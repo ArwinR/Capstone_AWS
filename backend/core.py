@@ -1,4 +1,4 @@
-%%writefile core.py
+#%%writefile core.py
 
 
 # App core features
